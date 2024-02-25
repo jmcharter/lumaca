@@ -85,17 +85,20 @@ type SiteData struct {
 
 func main() {
 	fmt.Println("Lumaca starting...")
-	config := initConfig()
+	config, err := initConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 	run(config)
 	fmt.Println("Lumaca finished.")
 }
 
-func initConfig() Config {
+func initConfig() (Config, error) {
 	var config Config
 	if _, err := toml.DecodeFile("config.toml", &config); err != nil {
-		log.Fatal(err)
+		return Config{}, fmt.Errorf("failed to decode config file: %w", err)
 	}
-	return config
+	return config, nil
 }
 
 func run(config Config) {
@@ -109,35 +112,46 @@ func run(config Config) {
 		Title:  config.Site.Title,
 		Author: config.Site.Author,
 	}
-	renderPosts(siteData, config)
-	renderHome(siteData, config)
+	err = renderPosts(&siteData, config)
+	if err != nil {
+
+	}
+	renderHome(&siteData, config)
 
 }
 
-func renderPosts(siteData SiteData, config Config) {
-	for _, md := range siteData.MD {
+func renderPosts(siteData *SiteData, config Config) error {
+	for i, md := range siteData.MD {
 		// Post template will inherit from base template
 		baseTmplFilePath := getTemplateFilePath(config, "base")
 		postTmplFilePath := getTemplateFilePath(config, "post")
 		tmpl, err := template.ParseFiles(baseTmplFilePath, postTmplFilePath)
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("failed to parse templates: %w", err)
 		}
 		outputDirpath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Posts))
-		os.MkdirAll(outputDirpath, os.ModePerm)
-		outputFilepath := getPostOutputFilePath(config, md.Frontmatter.Slug)
-		outputFile, err := os.Create(outputFilepath)
+		err = os.MkdirAll(outputDirpath, os.ModePerm)
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("failed to create output directory: %w", err)
+		}
+		outputFilePath := getPostOutputFilePath(config, md.Frontmatter.Slug)
+		siteData.MD[i].Path, err = filepath.Rel(config.Directories.Dist, outputFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to generate relative path for output file: %w", err)
+		}
+		outputFile, err := os.Create(outputFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
 		}
 		err = tmpl.Execute(outputFile, md)
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("failed to execute template: %w", err)
 		}
 	}
+	return nil
 }
 
-func renderHome(siteData SiteData, config Config) {
+func renderHome(siteData *SiteData, config Config) {
 	// Home template will inherit from base
 	baseTmplFilePath := getTemplateFilePath(config, "base")
 	homeTmplFilePath := getTemplateFilePath(config, "home")
@@ -158,6 +172,7 @@ func renderHome(siteData SiteData, config Config) {
 	}
 }
 
+// Iterates through the Posts directory and extracts Frontmatter and content from Markdown files
 func getMarkdownData(config Config) ([]MarkdownData, error) {
 	files, err := os.ReadDir(config.Directories.Posts)
 	if err != nil {
