@@ -27,6 +27,12 @@ type Config struct {
 	Author struct {
 		Name string
 	}
+	Files struct {
+		Extension string
+	}
+	Site struct {
+		Title string
+	}
 }
 
 type ContentType string
@@ -34,6 +40,19 @@ type Slug string
 
 func NewSlug(s string) Slug {
 	return Slug(slug.Make(s))
+}
+
+func getTemplateFilePath(config Config, templateName string) string {
+	return filepath.Join(config.Directories.Templates, templateName+config.Files.Extension)
+}
+
+func getPostOutputFilePath(config Config, slug Slug) string {
+	outputDirPath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Posts))
+	return filepath.Join(outputDirPath, string(slug)+config.Files.Extension)
+}
+
+func getIndexPath(config Config) string {
+	return filepath.Join(config.Directories.Dist, "index"+config.Files.Extension)
 }
 
 const (
@@ -58,12 +77,17 @@ type MarkdownData struct {
 
 func main() {
 	fmt.Println("Lumaca starting...")
+	config := initConfig()
+	run(config)
+	fmt.Println("Lumaca finished.")
+}
+
+func initConfig() Config {
 	var config Config
 	if _, err := toml.DecodeFile("config.toml", &config); err != nil {
 		log.Fatal(err)
 	}
-	run(config)
-	fmt.Println("Lumaca finished.")
+	return config
 }
 
 func run(config Config) {
@@ -131,7 +155,7 @@ func getMarkdownData(config Config) ([]MarkdownData, error) {
 	var contentFiles []MarkdownData
 	for _, file := range files {
 		if file.IsDir() || !strings.HasSuffix(file.Name(), ".md") {
-			break
+			continue
 		}
 		filepath := filepath.Join(config.Directories.Posts, file.Name())
 		data, err := os.ReadFile(filepath)
@@ -147,7 +171,7 @@ func getMarkdownData(config Config) ([]MarkdownData, error) {
 			continue
 		}
 		if matter.Type == "" {
-			matter.Type = "post"
+			matter.Type = ContentTypePost
 		}
 		matter.Slug = NewSlug(matter.Title)
 		fileData := MarkdownData{
@@ -163,7 +187,7 @@ func getMarkdownData(config Config) ([]MarkdownData, error) {
 }
 
 func RenderAllMDToHTML(mds []MarkdownData) []MarkdownData {
-	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.FencedCode | parser.Strikethrough | parser.Tables | parser.SuperSubscript
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.SuperSubscript
 
 	htmlFlags := html.CommonFlags | html.LazyLoadImages
 	opts := html.RendererOptions{Flags: htmlFlags}
