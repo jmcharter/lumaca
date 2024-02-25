@@ -2,30 +2,54 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/adrg/frontmatter"
+	"github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/html"
+	"github.com/gomarkdown/markdown/parser"
+	"github.com/gosimple/slug"
 )
 
 type Config struct {
-	ContentDirectories struct {
-		Posts string
-		Pages string
+	Directories struct {
+		Posts     string
+		Pages     string
+		Templates string
+		Dist      string
 	}
 	Author struct {
 		Name string
 	}
 }
 
+type ContentType string
+type Slug string
+
+const (
+	ContentTypePost ContentType = "Post"
+)
+
 type Matter struct {
-	Title  string   `yaml:"title"`
-	Author string   `yaml:"author"`
-	Tags   []string `yaml:"tags"`
-	Date   string
+	Title  string    `yaml:"title"`
+	Author string    `yaml:"author"`
+	Tags   []string  `yaml:"tags"`
+	Date   time.Time `yaml:"date"`
+	Type   ContentType
+	Slug   Slug
+}
+
+type MarkdownData struct {
+	Frontmatter Matter
+	Content     []byte
+	HTMLContent template.HTML
+	Path        string
 }
 
 func main() {
@@ -34,46 +58,118 @@ func main() {
 	if _, err := toml.DecodeFile("config.toml", &config); err != nil {
 		log.Fatal(err)
 	}
-	err := run(config)
-	if err != nil {
-		log.Fatal(err)
-	}
+	run(config)
 	fmt.Println("Lumaca finished.")
 }
 
-func run(config Config) error {
-
-	files, err := os.ReadDir(config.ContentDirectories.Posts)
+func run(config Config) {
+	markdownData, err := getMarkdownData(config)
 	if err != nil {
-		return err
+		log.Fatal(err)
+	}
+	convertedMarkdown := RenderAllMDToHTML(markdownData)
+	markdownWithPaths := renderPosts(convertedMarkdown, config)
+	renderHome(markdownWithPaths, config)
+
+}
+
+func renderPosts(convertedMarkdown []MarkdownData, config Config) []MarkdownData {
+	for i, md := range convertedMarkdown {
+		baseTmplFilepath := filepath.Join(config.Directories.Templates, "base.html")
+		postTmplFilepath := filepath.Join(config.Directories.Templates, "post.html")
+		tmpl, err := template.ParseFiles(baseTmplFilepath, postTmplFilepath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		outputDirpath := filepath.Join(config.Directories.Dist, "posts")
+		os.MkdirAll(outputDirpath, os.ModePerm)
+		outputFilepath := filepath.Join(outputDirpath, string(md.Frontmatter.Slug)+".html")
+		outputFile, err := os.Create(outputFilepath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		convertedMarkdown[i].Path = filepath.Join("posts", string(md.Frontmatter.Slug)+".html")
+		err = tmpl.Execute(outputFile, md)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return convertedMarkdown
+}
+
+func renderHome(posts []MarkdownData, config Config) {
+	baseTmplFilepath := filepath.Join(config.Directories.Templates, "base.html")
+	homeTmplFilepath := filepath.Join(config.Directories.Templates, "home.html")
+	outputDirpath := filepath.Join(config.Directories.Dist)
+	outputFilepath := filepath.Join(outputDirpath, "index.html")
+	tmpl, err := template.ParseFiles(baseTmplFilepath, homeTmplFilepath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	os.MkdirAll(outputDirpath, os.ModePerm)
+
+	outputFile, err := os.Create(outputFilepath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = tmpl.Execute(outputFile, posts)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func getMarkdownData(config Config) ([]MarkdownData, error) {
+	files, err := os.ReadDir(config.Directories.Posts)
+	if err != nil {
+		return nil, err
 	}
 
-	var matters []Matter
+	var contentFiles []MarkdownData
 	for _, file := range files {
 		if file.IsDir() || !strings.HasSuffix(file.Name(), ".md") {
 			break
 		}
-		filepath := filepath.Join(config.ContentDirectories.Posts, file.Name())
-		content, err := os.ReadFile(filepath)
+		filepath := filepath.Join(config.Directories.Posts, file.Name())
+		data, err := os.ReadFile(filepath)
 		if err != nil {
 			log.Println("Error reading file:", err)
 			continue
 		}
 
 		var matter Matter
-		_, err = frontmatter.Parse(strings.NewReader(string(content)), &matter)
+		content, err := frontmatter.Parse(strings.NewReader(string(data)), &matter)
 		if err != nil {
 			log.Println("Error parsing frontmatter from file:", err)
 			continue
 		}
-		matters = append(matters, matter)
+		if matter.Type == "" {
+			matter.Type = "post"
+		}
+		matter.Slug = Slug(slug.Make(matter.Title))
+		fileData := MarkdownData{
+			Frontmatter: matter,
+			Content:     content,
+		}
+		contentFiles = append(contentFiles, fileData)
 
 	}
 
-	for _, m := range matters {
-		fmt.Printf("%v\n", m)
+	return contentFiles, nil
+
+}
+
+func RenderAllMDToHTML(mds []MarkdownData) []MarkdownData {
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.FencedCode | parser.Strikethrough | parser.Tables | parser.SuperSubscript
+
+	htmlFlags := html.CommonFlags | html.LazyLoadImages
+	opts := html.RendererOptions{Flags: htmlFlags}
+
+	for i := range mds {
+		parser := parser.NewWithExtensions(extensions)
+		doc := parser.Parse(mds[i].Content)
+		renderer := html.NewRenderer(opts)
+		mds[i].HTMLContent = template.HTML(markdown.Render(doc, renderer))
 	}
 
-	return nil
-
+	return mds
 }
