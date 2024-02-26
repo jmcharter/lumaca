@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"html/template"
+	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -22,6 +24,7 @@ type Config struct {
 	Directories struct {
 		Posts     string
 		Pages     string
+		Static    string
 		Templates string
 		Dist      string
 	}
@@ -125,6 +128,10 @@ func run(config Config) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = copyStaticDir(config)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 }
 
@@ -140,6 +147,19 @@ func makeDirs(config Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create static directory")
 	}
+	filepath.WalkDir(config.Directories.Static, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("Error accessing path %q: %w", path, err)
+		}
+		if !d.IsDir() || path == config.Directories.Static {
+			return nil
+		}
+		err = os.MkdirAll(filepath.Join(outputStaticPath, d.Name()), os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create static subdirectory: %w", err)
+		}
+		return nil
+	})
 	return nil
 }
 
@@ -185,6 +205,42 @@ func renderHome(siteData *SiteData, config Config) error {
 	err = tmpl.Execute(outputFile, siteData)
 	if err != nil {
 		return fmt.Errorf("failed to execture template: %w", err)
+	}
+	return nil
+}
+
+// make copydir func for recursion in copyStaticDir
+func copyDir(src string, dst string) {
+
+}
+func copyFile(src string, dst string) {
+
+}
+
+func copyStaticDir(config Config) error {
+	staticDir := config.Directories.Static
+	files, err := os.ReadDir(staticDir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory: %w", err)
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		src, err := os.Open(filepath.Join(staticDir, file.Name()))
+		if err != nil {
+			return fmt.Errorf("unable to open file: %w", err)
+		}
+		defer src.Close()
+		dst, err := os.Create(filepath.Join(staticDir, file.Name()))
+		if err != nil {
+			return fmt.Errorf("unable to create file: %w", err)
+		}
+		defer dst.Close()
+		_, err = io.Copy(dst, src)
+		if err != nil {
+			return fmt.Errorf("failed to copy file: %w", err)
+		}
 	}
 	return nil
 }
