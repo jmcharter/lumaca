@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -179,38 +180,48 @@ func getMarkdownData(config Config) ([]MarkdownData, error) {
 		return nil, err
 	}
 
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	var contentFiles []MarkdownData
+
 	for _, file := range files {
 		if file.IsDir() || !strings.HasSuffix(file.Name(), ".md") {
 			continue
 		}
-		filepath := filepath.Join(config.Directories.Posts, file.Name())
-		data, err := os.ReadFile(filepath)
-		if err != nil {
-			log.Println("Error reading file:", err)
-			continue
-		}
+		wg.Add(1)
+		go func(file os.DirEntry) {
+			defer wg.Done()
+			filepath := filepath.Join(config.Directories.Posts, file.Name())
+			data, err := os.ReadFile(filepath)
+			if err != nil {
+				log.Println("Error reading file:", err)
+				return
+			}
 
-		var matter Matter
-		content, err := frontmatter.Parse(strings.NewReader(string(data)), &matter)
-		if err != nil {
-			log.Println("Error parsing frontmatter from file:", err)
-			continue
-		}
-		if matter.Author == "" {
-			matter.Author = config.Author.Name
-		}
-		if matter.Type == "" {
-			matter.Type = ContentTypePost
-		}
-		matter.Slug = NewSlug(matter.Title)
-		fileData := MarkdownData{
-			Frontmatter: matter,
-			Content:     content,
-		}
-		contentFiles = append(contentFiles, fileData)
+			var matter Matter
+			content, err := frontmatter.Parse(strings.NewReader(string(data)), &matter)
+			if err != nil {
+				log.Println("Error parsing frontmatter from file:", err)
+				return
+			}
+			if matter.Author == "" {
+				matter.Author = config.Author.Name
+			}
+			if matter.Type == "" {
+				matter.Type = ContentTypePost
+			}
+			matter.Slug = NewSlug(matter.Title)
+			fileData := MarkdownData{
+				Frontmatter: matter,
+				Content:     content,
+			}
+			mu.Lock()
+			contentFiles = append(contentFiles, fileData)
+			mu.Unlock()
 
+		}(file)
 	}
+	wg.Wait()
 
 	return contentFiles, nil
 
