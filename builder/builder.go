@@ -20,14 +20,14 @@ import (
 	"github.com/jmcharter/lumaca/config"
 )
 
-type ContentType string
-type Slug string
+type contentType string
+type postSlug string
 
-func NewSlug(s string) Slug {
-	return Slug(slug.Make(s))
+func newPostSlug(s string) postSlug {
+	return postSlug(slug.Make(s))
 }
 
-func (s Slug) String() string {
+func (s postSlug) String() string {
 	return string(s)
 }
 
@@ -35,7 +35,7 @@ func getTemplateFilePath(config config.Config, templateName string) string {
 	return filepath.Join(config.Directories.Templates, templateName+config.Files.Extension)
 }
 
-func getPostOutputFilePath(config config.Config, slug Slug) string {
+func getPostOutputFilePath(config config.Config, slug postSlug) string {
 	outputDirPath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Posts))
 	return filepath.Join(outputDirPath, slug.String()+config.Files.Extension)
 }
@@ -45,7 +45,7 @@ func getIndexPath(config config.Config) string {
 }
 
 const (
-	ContentTypePost ContentType = "post"
+	contentTypePost contentType = "post"
 )
 
 type Matter struct {
@@ -53,8 +53,8 @@ type Matter struct {
 	Author  string    `yaml:"author"`
 	Tags    []string  `yaml:"tags"`
 	Date    time.Time `yaml:"date"`
-	Type    ContentType
-	Slug    Slug
+	Type    contentType
+	Slug    postSlug
 	IsDraft bool
 }
 
@@ -159,6 +159,10 @@ func renderPosts(siteData *SiteData, config config.Config) error {
 		}
 	}
 	return nil
+}
+
+func renderPages(siteData *siteData, config config.Config) {
+
 }
 
 func renderHome(siteData *SiteData, config config.Config) error {
@@ -285,9 +289,9 @@ func getMarkdownData(config config.Config) ([]MarkdownData, error) {
 				matter.Author = config.Author.Name
 			}
 			if matter.Type == "" {
-				matter.Type = ContentTypePost
+				matter.Type = contentTypePost
 			}
-			matter.Slug = NewSlug(matter.Title)
+			matter.Slug = newPostSlug(matter.Title)
 			fileData := MarkdownData{
 				Frontmatter: matter,
 				Content:     content,
