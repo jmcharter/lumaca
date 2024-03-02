@@ -12,33 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/adrg/frontmatter"
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
 	"github.com/gosimple/slug"
+	"github.com/jmcharter/lumaca/config"
 )
-
-type Config struct {
-	Directories struct {
-		Posts     string
-		Pages     string
-		Static    string
-		Templates string
-		Dist      string
-	}
-	Author struct {
-		Name string
-	}
-	Files struct {
-		Extension string
-	}
-	Site struct {
-		Title  string
-		Author string
-	}
-}
 
 type ContentType string
 type Slug string
@@ -51,16 +31,16 @@ func (s Slug) String() string {
 	return string(s)
 }
 
-func getTemplateFilePath(config Config, templateName string) string {
+func getTemplateFilePath(config config.Config, templateName string) string {
 	return filepath.Join(config.Directories.Templates, templateName+config.Files.Extension)
 }
 
-func getPostOutputFilePath(config Config, slug Slug) string {
+func getPostOutputFilePath(config config.Config, slug Slug) string {
 	outputDirPath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Posts))
 	return filepath.Join(outputDirPath, slug.String()+config.Files.Extension)
 }
 
-func getIndexPath(config Config) string {
+func getIndexPath(config config.Config) string {
 	return filepath.Join(config.Directories.Dist, "index"+config.Files.Extension)
 }
 
@@ -91,25 +71,13 @@ type SiteData struct {
 	Author string
 }
 
-func Build() {
+func Build(config config.Config) {
 	fmt.Println("Build starting...")
-	config, err := initConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
 	run(config)
 	fmt.Println("Build finished.")
 }
 
-func initConfig() (Config, error) {
-	var config Config
-	if _, err := toml.DecodeFile("config.toml", &config); err != nil {
-		return Config{}, fmt.Errorf("failed to decode config file: %w", err)
-	}
-	return config, nil
-}
-
-func run(config Config) {
+func run(config config.Config) {
 	err := makeDirs(config)
 	if err != nil {
 		log.Fatal("failed to make directories:", err)
@@ -139,7 +107,7 @@ func run(config Config) {
 
 }
 
-func makeDirs(config Config) error {
+func makeDirs(config config.Config) error {
 	outputDirPath := config.Directories.Dist
 	outputPostsPath := filepath.Join(outputDirPath, filepath.Base(config.Directories.Posts))
 	outputStaticPath := filepath.Join(outputDirPath, "static")
@@ -167,7 +135,7 @@ func makeDirs(config Config) error {
 	return nil
 }
 
-func renderPosts(siteData *SiteData, config Config) error {
+func renderPosts(siteData *SiteData, config config.Config) error {
 	for i, md := range siteData.MD {
 		// Post template will inherit from base template
 		baseTmplFilePath := getTemplateFilePath(config, "base")
@@ -193,7 +161,7 @@ func renderPosts(siteData *SiteData, config Config) error {
 	return nil
 }
 
-func renderHome(siteData *SiteData, config Config) error {
+func renderHome(siteData *SiteData, config config.Config) error {
 	// Home template will inherit from base
 	baseTmplFilePath := getTemplateFilePath(config, "base")
 	homeTmplFilePath := getTemplateFilePath(config, "home")
@@ -275,7 +243,7 @@ func copyFile(src string, dst string) error {
 	return err
 }
 
-func copyStaticDir(config Config) error {
+func copyStaticDir(config config.Config) error {
 	staticDir := config.Directories.Static
 	destDir := filepath.Join(config.Directories.Dist, filepath.Base(staticDir))
 	err := copyDir(staticDir, destDir)
@@ -283,7 +251,7 @@ func copyStaticDir(config Config) error {
 }
 
 // Iterates through the Posts directory and extracts Frontmatter and content from Markdown files
-func getMarkdownData(config Config) ([]MarkdownData, error) {
+func getMarkdownData(config config.Config) ([]MarkdownData, error) {
 	files, err := os.ReadDir(config.Directories.Posts)
 	if err != nil {
 		return nil, err

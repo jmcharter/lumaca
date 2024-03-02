@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"log"
 	"os"
 
+	"github.com/jmcharter/lumaca/config"
 	"github.com/spf13/cobra"
 )
+
+var cfg config.Config
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -23,4 +27,10 @@ func Execute() {
 }
 
 func init() {
+
+	var err error
+	cfg, err = config.InitConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
