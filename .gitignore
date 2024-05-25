@@ -16,3 +16,8 @@
 
 # Go workspace file
 go.work
+
+config.toml
+
+dist/
+content/
