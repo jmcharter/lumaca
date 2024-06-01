@@ -1,0 +1,8 @@
+[directories]
+posts = "content/posts"
+pages = "content/pages"
+templates = "templates"
+dist = "dist"
+
+[author]
+name = "Jon"
