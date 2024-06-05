@@ -6,3 +6,10 @@ dist = "dist"
 
 [author]
 name = "Jon"
+
+[files]
+extension = ".html"
+
+[site]
+title = "My amazing site"
+language = "en-gb"
