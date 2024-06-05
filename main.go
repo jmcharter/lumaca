@@ -32,6 +32,10 @@ type Config struct {
 type ContentType string
 type Slug string
 
+func NewSlug(s string) Slug {
+	return Slug(slug.Make(s))
+}
+
 const (
 	ContentTypePost ContentType = "Post"
 )
@@ -145,7 +149,7 @@ func getMarkdownData(config Config) ([]MarkdownData, error) {
 		if matter.Type == "" {
 			matter.Type = "post"
 		}
-		matter.Slug = Slug(slug.Make(matter.Title))
+		matter.Slug = NewSlug(matter.Title)
 		fileData := MarkdownData{
 			Frontmatter: matter,
 			Content:     content,
