@@ -31,7 +31,8 @@ type Config struct {
 		Extension string
 	}
 	Site struct {
-		Title string
+		Title  string
+		Author string
 	}
 }
 
@@ -56,16 +57,17 @@ func getIndexPath(config Config) string {
 }
 
 const (
-	ContentTypePost ContentType = "Post"
+	ContentTypePost ContentType = "post"
 )
 
 type Matter struct {
-	Title  string    `yaml:"title"`
-	Author string    `yaml:"author"`
-	Tags   []string  `yaml:"tags"`
-	Date   time.Time `yaml:"date"`
-	Type   ContentType
-	Slug   Slug
+	Title   string    `yaml:"title"`
+	Author  string    `yaml:"author"`
+	Tags    []string  `yaml:"tags"`
+	Date    time.Time `yaml:"date"`
+	Type    ContentType
+	Slug    Slug
+	IsDraft bool
 }
 
 type MarkdownData struct {
@@ -73,6 +75,12 @@ type MarkdownData struct {
 	Content     []byte
 	HTMLContent template.HTML
 	Path        string
+}
+
+type SiteData struct {
+	MD     []MarkdownData
+	Title  string
+	Author string
 }
 
 func main() {
@@ -96,51 +104,55 @@ func run(config Config) {
 		log.Fatal(err)
 	}
 	convertedMarkdown := RenderAllMDToHTML(markdownData)
-	markdownWithPaths := renderPosts(convertedMarkdown, config)
-	renderHome(markdownWithPaths, config)
+	siteData := SiteData{
+		MD:     convertedMarkdown,
+		Title:  config.Site.Title,
+		Author: config.Site.Author,
+	}
+	renderPosts(siteData, config)
+	renderHome(siteData, config)
 
 }
 
-func renderPosts(convertedMarkdown []MarkdownData, config Config) []MarkdownData {
-	for i, md := range convertedMarkdown {
-		baseTmplFilepath := filepath.Join(config.Directories.Templates, "base.html")
-		postTmplFilepath := filepath.Join(config.Directories.Templates, "post.html")
-		tmpl, err := template.ParseFiles(baseTmplFilepath, postTmplFilepath)
+func renderPosts(siteData SiteData, config Config) {
+	for _, md := range siteData.MD {
+		// Post template will inherit from base template
+		baseTmplFilePath := getTemplateFilePath(config, "base")
+		postTmplFilePath := getTemplateFilePath(config, "post")
+		tmpl, err := template.ParseFiles(baseTmplFilePath, postTmplFilePath)
 		if err != nil {
 			log.Fatal(err)
 		}
-		outputDirpath := filepath.Join(config.Directories.Dist, "posts")
+		outputDirpath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Posts))
 		os.MkdirAll(outputDirpath, os.ModePerm)
-		outputFilepath := filepath.Join(outputDirpath, string(md.Frontmatter.Slug)+".html")
+		outputFilepath := getPostOutputFilePath(config, md.Frontmatter.Slug)
 		outputFile, err := os.Create(outputFilepath)
 		if err != nil {
 			log.Fatal(err)
 		}
-		convertedMarkdown[i].Path = filepath.Join("posts", string(md.Frontmatter.Slug)+".html")
 		err = tmpl.Execute(outputFile, md)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-	return convertedMarkdown
 }
 
-func renderHome(posts []MarkdownData, config Config) {
-	baseTmplFilepath := filepath.Join(config.Directories.Templates, "base.html")
-	homeTmplFilepath := filepath.Join(config.Directories.Templates, "home.html")
-	outputDirpath := filepath.Join(config.Directories.Dist)
-	outputFilepath := filepath.Join(outputDirpath, "index.html")
-	tmpl, err := template.ParseFiles(baseTmplFilepath, homeTmplFilepath)
+func renderHome(siteData SiteData, config Config) {
+	// Home template will inherit from base
+	baseTmplFilePath := getTemplateFilePath(config, "base")
+	homeTmplFilePath := getTemplateFilePath(config, "home")
+	outputDirPath := filepath.Join(config.Directories.Dist)
+	os.MkdirAll(outputDirPath, os.ModePerm)
+	outputFilePath := getIndexPath(config)
+	tmpl, err := template.ParseFiles(baseTmplFilePath, homeTmplFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	os.MkdirAll(outputDirpath, os.ModePerm)
-
-	outputFile, err := os.Create(outputFilepath)
+	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = tmpl.Execute(outputFile, posts)
+	err = tmpl.Execute(outputFile, siteData)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -169,6 +181,9 @@ func getMarkdownData(config Config) ([]MarkdownData, error) {
 		if err != nil {
 			log.Println("Error parsing frontmatter from file:", err)
 			continue
+		}
+		if matter.Author == "" {
+			matter.Author = config.Author.Name
 		}
 		if matter.Type == "" {
 			matter.Type = ContentTypePost
