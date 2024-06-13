@@ -103,6 +103,10 @@ func initConfig() (Config, error) {
 }
 
 func run(config Config) {
+	err := makeDirs(config)
+	if err != nil {
+		log.Fatal("failed to make directories:", err)
+	}
 	markdownData, err := getMarkdownData(config)
 	if err != nil {
 		log.Fatal(err)
@@ -115,10 +119,28 @@ func run(config Config) {
 	}
 	err = renderPosts(&siteData, config)
 	if err != nil {
-
+		log.Fatal(err)
 	}
-	renderHome(&siteData, config)
+	err = renderHome(&siteData, config)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+}
+
+func makeDirs(config Config) error {
+	outputDirPath := config.Directories.Dist
+	outputPostsPath := filepath.Join(outputDirPath, filepath.Base(config.Directories.Posts))
+	outputStaticPath := filepath.Join(outputDirPath, "static")
+	err := os.MkdirAll(outputPostsPath, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create posts directory")
+	}
+	err = os.MkdirAll(outputStaticPath, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create static directory")
+	}
+	return nil
 }
 
 func renderPosts(siteData *SiteData, config Config) error {
@@ -129,11 +151,6 @@ func renderPosts(siteData *SiteData, config Config) error {
 		tmpl, err := template.ParseFiles(baseTmplFilePath, postTmplFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to parse templates: %w", err)
-		}
-		outputDirpath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Posts))
-		err = os.MkdirAll(outputDirpath, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 		outputFilePath := getPostOutputFilePath(config, md.Frontmatter.Slug)
 		siteData.MD[i].Path, err = filepath.Rel(config.Directories.Dist, outputFilePath)
@@ -152,25 +169,24 @@ func renderPosts(siteData *SiteData, config Config) error {
 	return nil
 }
 
-func renderHome(siteData *SiteData, config Config) {
+func renderHome(siteData *SiteData, config Config) error {
 	// Home template will inherit from base
 	baseTmplFilePath := getTemplateFilePath(config, "base")
 	homeTmplFilePath := getTemplateFilePath(config, "home")
-	outputDirPath := filepath.Join(config.Directories.Dist)
-	os.MkdirAll(outputDirPath, os.ModePerm)
 	outputFilePath := getIndexPath(config)
 	tmpl, err := template.ParseFiles(baseTmplFilePath, homeTmplFilePath)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to parse files: %w", err)
 	}
 	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 	err = tmpl.Execute(outputFile, siteData)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to execture template: %w", err)
 	}
+	return nil
 }
 
 // Iterates through the Posts directory and extracts Frontmatter and content from Markdown files
