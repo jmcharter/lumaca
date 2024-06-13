@@ -210,39 +210,72 @@ func renderHome(siteData *SiteData, config Config) error {
 }
 
 // make copydir func for recursion in copyStaticDir
-func copyDir(src string, dst string) {
+func copyDir(src string, dst string) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to get directory info for src dir: %w", err)
+	}
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return fmt.Errorf("failed to make dst directory: %w", err)
+	}
 
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return fmt.Errorf("failed to read src dir: %w", err)
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			err = copyDir(srcPath, dstPath)
+			if err != nil {
+				return fmt.Errorf("failed to copy dir: %w", err)
+			}
+		} else {
+			err = copyFile(srcPath, dstPath)
+			if err != nil {
+				return fmt.Errorf("failed to copy file: %w", err)
+			}
+
+		}
+	}
+
+	return nil
 }
-func copyFile(src string, dst string) {
 
+func copyFile(src string, dst string) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to get file info for src file: %w", err)
+	}
+
+	if !srcInfo.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create dst file: %w", err)
+	}
+	defer destination.Close()
+
+	_, err = io.Copy(destination, source)
+	return err
 }
 
 func copyStaticDir(config Config) error {
 	staticDir := config.Directories.Static
-	files, err := os.ReadDir(staticDir)
-	if err != nil {
-		return fmt.Errorf("failed to read directory: %w", err)
-	}
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-		src, err := os.Open(filepath.Join(staticDir, file.Name()))
-		if err != nil {
-			return fmt.Errorf("unable to open file: %w", err)
-		}
-		defer src.Close()
-		dst, err := os.Create(filepath.Join(staticDir, file.Name()))
-		if err != nil {
-			return fmt.Errorf("unable to create file: %w", err)
-		}
-		defer dst.Close()
-		_, err = io.Copy(dst, src)
-		if err != nil {
-			return fmt.Errorf("failed to copy file: %w", err)
-		}
-	}
-	return nil
+	destDir := filepath.Join(config.Directories.Dist, filepath.Base(staticDir))
+	err := copyDir(staticDir, destDir)
+	return err
 }
 
 // Iterates through the Posts directory and extracts Frontmatter and content from Markdown files
