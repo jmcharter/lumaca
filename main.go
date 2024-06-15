@@ -47,13 +47,17 @@ func NewSlug(s string) Slug {
 	return Slug(slug.Make(s))
 }
 
+func (s Slug) String() string {
+	return string(s)
+}
+
 func getTemplateFilePath(config Config, templateName string) string {
 	return filepath.Join(config.Directories.Templates, templateName+config.Files.Extension)
 }
 
 func getPostOutputFilePath(config Config, slug Slug) string {
 	outputDirPath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Posts))
-	return filepath.Join(outputDirPath, string(slug)+config.Files.Extension)
+	return filepath.Join(outputDirPath, slug.String()+config.Files.Extension)
 }
 
 func getIndexPath(config Config) string {
