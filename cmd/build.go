@@ -11,7 +11,7 @@ var buildCmd = &cobra.Command{
 	Short: "Builds and compiles the site's source files into static files ready for deployment.",
 	Long:  `Compiles all source content, templates, and static assets into a complete set of optimized, static HTML and CSS and renders an RSS feed.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		builder.Build()
+		builder.Build(cfg)
 	},
 }
 
