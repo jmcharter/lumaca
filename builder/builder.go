@@ -66,7 +66,8 @@ type MarkdownData struct {
 }
 
 type SiteData struct {
-	MD     []MarkdownData
+	PostMD []MarkdownData
+	PageMD []MarkdownData
 	Title  string
 	Author string
 }
@@ -88,7 +89,7 @@ func run(config config.Config) {
 	}
 	convertedMarkdown := RenderAllMDToHTML(markdownData)
 	siteData := SiteData{
-		MD:     convertedMarkdown,
+		PostMD: convertedMarkdown,
 		Title:  config.Site.Title,
 		Author: config.Site.Author,
 	}
@@ -136,7 +137,10 @@ func makeDirs(config config.Config) error {
 }
 
 func renderPosts(siteData *SiteData, config config.Config) error {
-	for i, md := range siteData.MD {
+	if len(siteData.PostMD) < 1 {
+		return fmt.Errorf("Site data contained no Markdown data")
+	}
+	for i, md := range siteData.PostMD {
 		// Post template will inherit from base template
 		baseTmplFilePath := getTemplateFilePath(config, "base")
 		postTmplFilePath := getTemplateFilePath(config, "post")
@@ -145,7 +149,7 @@ func renderPosts(siteData *SiteData, config config.Config) error {
 			return fmt.Errorf("failed to parse templates: %w", err)
 		}
 		outputFilePath := getPostOutputFilePath(config, md.Frontmatter.Slug)
-		siteData.MD[i].Path, err = filepath.Rel(config.Directories.Dist, outputFilePath)
+		siteData.PostMD[i].Path, err = filepath.Rel(config.Directories.Dist, outputFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to generate relative path for output file: %w", err)
 		}
@@ -161,9 +165,9 @@ func renderPosts(siteData *SiteData, config config.Config) error {
 	return nil
 }
 
-func renderPages(siteData *siteData, config config.Config) {
-
-}
+// func renderPages(siteData *siteData, config config.Config) {
+// i
+// }
 
 func renderHome(siteData *SiteData, config config.Config) error {
 	// Home template will inherit from base
@@ -180,7 +184,7 @@ func renderHome(siteData *SiteData, config config.Config) error {
 	}
 	err = tmpl.Execute(outputFile, siteData)
 	if err != nil {
-		return fmt.Errorf("failed to execture template: %w", err)
+		return fmt.Errorf("failed to execute template: %w", err)
 	}
 	return nil
 }
