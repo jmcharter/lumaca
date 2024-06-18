@@ -20,7 +20,6 @@ import (
 	"github.com/jmcharter/lumaca/config"
 )
 
-type contentType string
 type postSlug string
 
 func newPostSlug(s string) postSlug {
@@ -31,22 +30,58 @@ func (s postSlug) String() string {
 	return string(s)
 }
 
-func getTemplateFilePath(config config.Config, templateName string) string {
+func getTemplateFilePath(config config.Config, cType contentType) string {
+	var templateName = cType.String()
 	return filepath.Join(config.Directories.Templates, templateName+config.Files.Extension)
 }
 
-func getPostOutputFilePath(config config.Config, slug postSlug) string {
-	outputDirPath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Posts))
-	return filepath.Join(outputDirPath, slug.String()+config.Files.Extension)
+func getOutputFilePath(config config.Config, name string, cType contentType) string {
+	var baseDir string
+	switch cType {
+	case contentTypeBase:
+		log.Fatal("Base content has no output file path")
+	case contentTypeHome:
+		baseDir = config.Directories.Dist
+	case contentTypePage:
+		baseDir = config.Directories.Pages
+	case contentTypePost:
+		baseDir = config.Directories.Posts
+	}
+	outputDirPath := filepath.Join(config.Directories.Dist, filepath.Base(baseDir))
+	return filepath.Join(outputDirPath, name+config.Files.Extension)
+}
+
+func getPageOutputFilePath(config config.Config, title string) string {
+	outputDirPath := filepath.Join(config.Directories.Dist, filepath.Base(config.Directories.Pages))
+	return filepath.Join(outputDirPath, title+config.Files.Extension)
 }
 
 func getIndexPath(config config.Config) string {
 	return filepath.Join(config.Directories.Dist, "index"+config.Files.Extension)
 }
 
+type contentType int32
+
 const (
-	contentTypePost contentType = "post"
+	contentTypeBase contentType = iota
+	contentTypeHome
+	contentTypePage
+	contentTypePost
 )
+
+var contentTypeTemplates = [...]string{
+	"base",
+	"home",
+	"page",
+	"post",
+}
+
+func (c contentType) String() string {
+	if c < contentTypeBase || c > contentTypePost {
+		log.Fatal("Content Type not implemented")
+	}
+	return contentTypeTemplates[c]
+}
 
 type Matter struct {
 	Title   string    `yaml:"title"`
@@ -66,10 +101,9 @@ type MarkdownData struct {
 }
 
 type SiteData struct {
-	PostMD []MarkdownData
-	PageMD []MarkdownData
 	Title  string
 	Author string
+	Pages  []MarkdownData
 }
 
 func Build(config config.Config) {
@@ -83,21 +117,26 @@ func run(config config.Config) {
 	if err != nil {
 		log.Fatal("failed to make directories:", err)
 	}
-	markdownData, err := getMarkdownData(config)
+	postMDData, err := getMarkdownData(config, contentTypePost, config.Directories.Posts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	convertedMarkdown := RenderAllMDToHTML(markdownData)
+	postMarkdown := RenderAllMDToHTML(postMDData)
+	pageMDData, err := getMarkdownData(config, contentTypePage, config.Directories.Pages)
+	pageMarkdown := RenderAllMDToHTML(pageMDData)
 	siteData := SiteData{
-		PostMD: convertedMarkdown,
 		Title:  config.Site.Title,
 		Author: config.Site.Author,
 	}
-	err = renderPosts(&siteData, config)
+	err = renderPages(config, pageMarkdown, &siteData)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = renderHome(&siteData, config)
+	err = renderPosts(config, postMarkdown, &siteData)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = renderHome(config, postMarkdown, &siteData)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -136,43 +175,23 @@ func makeDirs(config config.Config) error {
 	return nil
 }
 
-func renderPosts(siteData *SiteData, config config.Config) error {
-	if len(siteData.PostMD) < 1 {
-		return fmt.Errorf("Site data contained no Markdown data")
-	}
-	for i, md := range siteData.PostMD {
-		// Post template will inherit from base template
-		baseTmplFilePath := getTemplateFilePath(config, "base")
-		postTmplFilePath := getTemplateFilePath(config, "post")
-		tmpl, err := template.ParseFiles(baseTmplFilePath, postTmplFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to parse templates: %w", err)
-		}
-		outputFilePath := getPostOutputFilePath(config, md.Frontmatter.Slug)
-		siteData.PostMD[i].Path, err = filepath.Rel(config.Directories.Dist, outputFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to generate relative path for output file: %w", err)
-		}
-		outputFile, err := os.Create(outputFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to create output file: %w", err)
-		}
-		err = tmpl.Execute(outputFile, md)
-		if err != nil {
-			return fmt.Errorf("failed to execute template: %w", err)
-		}
-	}
-	return nil
+func renderPages(config config.Config, mds []MarkdownData, siteData *SiteData) error {
+	err := executeTemplates(config, mds, siteData, contentTypePage)
+	return err
 }
 
-// func renderPages(siteData *siteData, config config.Config) {
-// i
-// }
+func renderPosts(config config.Config, mds []MarkdownData, siteData *SiteData) error {
+	if len(mds) < 1 {
+		return fmt.Errorf("Site data contained no Markdown data")
+	}
+	err := executeTemplates(config, mds, siteData, contentTypePost)
+	return err
+}
 
-func renderHome(siteData *SiteData, config config.Config) error {
+func renderHome(config config.Config, mds []MarkdownData, siteData *SiteData) error {
 	// Home template will inherit from base
-	baseTmplFilePath := getTemplateFilePath(config, "base")
-	homeTmplFilePath := getTemplateFilePath(config, "home")
+	baseTmplFilePath := getTemplateFilePath(config, contentTypeBase)
+	homeTmplFilePath := getTemplateFilePath(config, contentTypeHome)
 	outputFilePath := getIndexPath(config)
 	tmpl, err := template.ParseFiles(baseTmplFilePath, homeTmplFilePath)
 	if err != nil {
@@ -182,9 +201,58 @@ func renderHome(siteData *SiteData, config config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	err = tmpl.Execute(outputFile, siteData)
+	data := struct {
+		MD       []MarkdownData
+		SiteData *SiteData
+	}{
+		mds,
+		siteData,
+	}
+	err = tmpl.Execute(outputFile, data)
 	if err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	return nil
+}
+
+func executeTemplates(config config.Config, mds []MarkdownData, siteData *SiteData, cType contentType) error {
+	for i, md := range mds {
+		// Post template will inherit from base template
+		baseTmplFilePath := getTemplateFilePath(config, contentTypeBase)
+		contentTmplFilePath := getTemplateFilePath(config, cType)
+		tmpl, err := template.ParseFiles(baseTmplFilePath, contentTmplFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to parse templates: %w", err)
+		}
+		var fileName string
+
+		switch cType {
+		case contentTypePost:
+			fileName = md.Frontmatter.Slug.String()
+		default:
+			fileName = md.Frontmatter.Title
+		}
+
+		outputFilePath := getOutputFilePath(config, fileName, cType)
+		mds[i].Path, err = filepath.Rel(config.Directories.Dist, outputFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to generate relative path for output file: %w", err)
+		}
+		outputFile, err := os.Create(outputFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		data := struct {
+			MD       MarkdownData
+			SiteData *SiteData
+		}{
+			md,
+			siteData,
+		}
+		err = tmpl.Execute(outputFile, data)
+		if err != nil {
+			return fmt.Errorf("failed to execute template: %w", err)
+		}
 	}
 	return nil
 }
@@ -258,9 +326,9 @@ func copyStaticDir(config config.Config) error {
 	return err
 }
 
-// Iterates through the Posts directory and extracts Frontmatter and content from Markdown files
-func getMarkdownData(config config.Config) ([]MarkdownData, error) {
-	files, err := os.ReadDir(config.Directories.Posts)
+// Iterates through the given directory and extracts Frontmatter and content from Markdown files
+func getMarkdownData(config config.Config, cType contentType, inputDir string) ([]MarkdownData, error) {
+	files, err := os.ReadDir(inputDir)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +344,7 @@ func getMarkdownData(config config.Config) ([]MarkdownData, error) {
 		wg.Add(1)
 		go func(file os.DirEntry) {
 			defer wg.Done()
-			filepath := filepath.Join(config.Directories.Posts, file.Name())
+			filepath := filepath.Join(inputDir, file.Name())
 			data, err := os.ReadFile(filepath)
 			if err != nil {
 				log.Println("Error reading file:", err)
@@ -289,13 +357,12 @@ func getMarkdownData(config config.Config) ([]MarkdownData, error) {
 				log.Println("Error parsing frontmatter from file:", err)
 				return
 			}
-			if matter.Author == "" {
-				matter.Author = config.Author.Name
+			if cType == contentTypePost {
+				if matter.Author == "" {
+					matter.Author = config.Author.Name
+				}
+				matter.Slug = newPostSlug(matter.Title)
 			}
-			if matter.Type == "" {
-				matter.Type = contentTypePost
-			}
-			matter.Slug = newPostSlug(matter.Title)
 			fileData := MarkdownData{
 				Frontmatter: matter,
 				Content:     content,
