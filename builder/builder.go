@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -19,6 +20,25 @@ import (
 	"github.com/gosimple/slug"
 	"github.com/jmcharter/lumaca/config"
 )
+
+type YAMLDate time.Time
+
+func (d YAMLDate) MarshalYAML() (interface{}, error) {
+	return time.Time(d).Format("2006-01-02"), nil
+}
+
+func (d *YAMLDate) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var dateStr string
+	if err := unmarshal(&dateStr); err != nil {
+		return err
+	}
+	parsedDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return err
+	}
+	*d = YAMLDate(parsedDate)
+	return nil
+}
 
 type postSlug string
 
@@ -83,14 +103,32 @@ func (c contentType) String() string {
 	return contentTypeTemplates[c]
 }
 
+func (c contentType) MarshalText() ([]byte, error) {
+	return []byte(c.String()), nil
+}
+
+func (c *contentType) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	for i, v := range contentTypeTemplates {
+		if v == s {
+			*c = contentType(i)
+			return nil
+		}
+	}
+	return errors.New("invalid content type")
+}
+
 type Matter struct {
-	Title   string    `yaml:"title"`
-	Author  string    `yaml:"author"`
-	Tags    []string  `yaml:"tags"`
-	Date    time.Time `yaml:"date"`
-	Type    contentType
-	Slug    postSlug
-	IsDraft bool
+	Title   string      `yaml:"title"`
+	Author  string      `yaml:"author"`
+	Tags    []string    `yaml:"tags"`
+	Date    YAMLDate    `yaml:"date"`
+	Type    contentType `yaml:"type"`
+	Slug    postSlug    `yaml:"-"`
+	IsDraft bool        `yaml:"draft"`
 }
 
 type MarkdownData struct {
