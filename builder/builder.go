@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,10 @@ type YAMLDate time.Time
 
 func (d YAMLDate) MarshalYAML() (interface{}, error) {
 	return time.Time(d).Format("2006-01-02"), nil
+}
+
+func (yd YAMLDate) Format(layout string) string {
+	return time.Time(yd).Format(layout)
 }
 
 func (d *YAMLDate) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -254,6 +259,9 @@ func renderHome(config config.Config, mds []MarkdownData, siteData *SiteData) er
 }
 
 func executeTemplates(config config.Config, mds []MarkdownData, siteData *SiteData, cType contentType) error {
+	sort.Slice(mds, func(i, j int) bool {
+		return time.Time(mds[i].Frontmatter.Date).After(time.Time(mds[j].Frontmatter.Date))
+	})
 	for i, md := range mds {
 		// Post template will inherit from base template
 		baseTmplFilePath := getTemplateFilePath(config, contentTypeBase)

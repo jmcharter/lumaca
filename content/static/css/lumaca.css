@@ -1,0 +1,29 @@
+ul.blog-posts {
+  list-style-type: none;
+  padding: unset;
+  line-height: 1.6;
+}
+
+ul.blog-posts li {
+  display: flex;
+}
+
+ul.blog-posts li span {
+  flex: 0 0 130px;
+}
+
+i time {
+  font-style: normal;
+  font-weight: bold;
+  font-family: monospace;
+}
+
+.blog-post-header h1 {
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.blog-post-header h4 {
+  padding-top: 0;
+  margin-top: 0;
+}

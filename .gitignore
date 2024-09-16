@@ -20,4 +20,4 @@ go.work
 config.toml
 
 dist/
-content/
+content/posts/

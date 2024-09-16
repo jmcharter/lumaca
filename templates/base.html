@@ -7,15 +7,12 @@
   <title>{{block "title" .}}{{ or .MD.Frontmatter.Title .SiteData.Title }}{{end}}</title>
   <link rel="stylesheet" href="/static/css/normalize.css">
   <link rel="stylesheet" href="/static/css/sakura.css" type="text/css">
+  <link rel="stylesheet" href="/static/css/lumaca.css" type="text/css">
 </head>
 
 <body>
-  <nav>
-    {{ range .SiteData.Pages }}
-    <a>{{ .Title }}</a>
-    {{ end }}
-  </nav>
-  {{block "header" .}}<h1>{{ or .MD.Frontmatter.Title .Title}}</h1>{{end}}
+  <h1><a href="/">{{.SiteData.Title}}</a></h1>
+  {{block "header" .}}<h2>Post title</h2>{{end}}
   {{block "content" .}}Post content{{end}}
   {{block "index" .}}{{end}}
 </body>

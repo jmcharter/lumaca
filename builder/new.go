@@ -34,7 +34,7 @@ func New(cfg config.Config, title string, author string, draft bool) error {
 	}
 	frontmatter := fmt.Sprintf("---\n%s---\n\n", string(frontmatterBytes))
 
-	initialContent := frontmatter + "\n#" + title + "\n\nLorem ipsum..."
+	initialContent := frontmatter + "\n\nLorem ipsum..."
 	err = os.WriteFile(filepath, []byte(initialContent), os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create content file: %w", err)

@@ -1,6 +1,15 @@
 {{define "title"}}{{ .MD.Frontmatter.Title }}{{end}}
 
-{{define "header"}}<h1>{{or .MD.Frontmatter.Title "Post Title"}}</h1>{{end}}
+{{define "header"}}
+<div class="blog-post-header">
+  <h2>{{or .MD.Frontmatter.Title "Post Title"}}</h2>
+  <h4>by {{.MD.Frontmatter.Author}}</h4>
+  <span><i>
+      <time datetime="{{.MD.Frontmatter.Date.Format " 2006-01-02"}}">{{.MD.Frontmatter.Date.Format
+        "2006-01-02"}}</time>
+    </i></span>
+</div>
+{{end}}
 
 {{define "content"}}
 {{or .MD.HTMLContent "Post content"}}
