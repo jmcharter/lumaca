@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"html/template"
@@ -21,6 +22,8 @@ import (
 	"github.com/gosimple/slug"
 	"github.com/jmcharter/lumaca/config"
 )
+
+var EmbeddedFiles embed.FS
 
 type YAMLDate time.Time
 

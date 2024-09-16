@@ -1,0 +1,85 @@
+package builder
+
+import (
+	"embed"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+)
+
+func Initialise() error {
+	// Check for existence of config.toml
+	if _, err := os.Stat("config.toml"); err == nil {
+		fmt.Println("Project already initialised")
+		return nil // Early return if file exists
+	}
+	// Create config.toml
+	err := os.WriteFile("config.toml", []byte(""), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create config.toml: %w", err)
+	}
+
+	// Create "templates" and "content/static" directories with files
+	err = os.MkdirAll("templates", 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create templates directory: %w", err)
+	}
+
+	err = os.MkdirAll("content/static", 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create content/static directory: %w", err)
+	}
+
+	// Copy embedded files
+	err = copyEmbeddedFiles(EmbeddedFiles, "templates", "templates")
+	if err != nil {
+		return err
+	}
+	err = copyEmbeddedFiles(EmbeddedFiles, "content/static", "content/static")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func copyEmbeddedFiles(fsys embed.FS, sourceDir, targetDir string) error {
+	err := fs.WalkDir(fsys, sourceDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		content, err := fsys.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("failed to read embedded file %s: %w", path, err)
+		}
+
+		relativePath, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(targetDir, relativePath)
+
+		err = os.MkdirAll(filepath.Dir(targetPath), 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", filepath.Dir(targetPath), err)
+		}
+
+		err = os.WriteFile(targetPath, content, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write file %s: %w", targetPath, err)
+		}
+
+		fmt.Printf("Copied %s to %s\n", path, targetPath)
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to copy embedded files: %w", err)
+	}
+	return nil
+}

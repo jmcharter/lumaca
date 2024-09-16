@@ -11,3 +11,7 @@ This is not a commercial project and is not intended to be distributed or used b
 
 The project is MIT licensed, so feel free to fork it, copy it, modify and generally do as you please.
 
+## Usage
+
+### Installation
+Clone the repository

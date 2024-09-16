@@ -1,11 +1,16 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-
-*/
 package main
 
-import "github.com/jmcharter/lumaca/cmd"
+import (
+	"embed"
+
+	"github.com/jmcharter/lumaca/builder"
+	"github.com/jmcharter/lumaca/cmd"
+)
+
+//go:embed templates/* content/static/*
+var embeddedFiles embed.FS
 
 func main() {
+	builder.EmbeddedFiles = embeddedFiles
 	cmd.Execute()
 }
