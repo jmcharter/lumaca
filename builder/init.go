@@ -30,7 +30,7 @@ func Initialise(author string, title string) error {
 	cfg_data.Site.Author = author
 	cfg_data.Directories.Posts = "content/posts"
 	cfg_data.Directories.Pages = "content/pages"
-	cfg_data.Directories.Static = "static"
+	cfg_data.Directories.Static = "content/static"
 	cfg_data.Directories.Templates = "templates"
 	cfg_data.Directories.Dist = "dist"
 	cfg_data.Files.Extension = ".html"
@@ -44,13 +44,17 @@ func Initialise(author string, title string) error {
 		return fmt.Errorf("failed to write config data to config.toml: %w", err)
 	}
 
-	// Create "templates" and "content/static" directories with files
-	err = os.MkdirAll("templates", 0755)
+	err = os.MkdirAll(cfg_data.Directories.Templates, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create templates directory: %w", err)
 	}
 
-	err = os.MkdirAll("content/static", 0755)
+	err = os.MkdirAll(cfg_data.Directories.Static, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create content/static directory: %w", err)
+	}
+
+	err = os.MkdirAll(cfg_data.Directories.Posts, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create content/static directory: %w", err)
 	}
