@@ -1,10 +1,12 @@
 package config
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/BurntSushi/toml"
 )
+
+var DecodeFileError = errors.New("failed to decode config file")
 
 type Config struct {
 	Directories struct {
@@ -29,7 +31,7 @@ type Config struct {
 func InitConfig() (Config, error) {
 	var cfg Config
 	if _, err := toml.DecodeFile("config.toml", &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to decode config file: %w", err)
+		return Config{}, DecodeFileError
 	}
 	return cfg, nil
 }

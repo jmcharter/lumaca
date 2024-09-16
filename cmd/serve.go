@@ -28,7 +28,6 @@ var serveCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(serveCmd)
 	serveCmd.Flags().IntVarP(&portFlag, "port", "p", 8080, "Port to serve static content on")
 }
 

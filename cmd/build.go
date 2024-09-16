@@ -16,7 +16,6 @@ var buildCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(buildCmd)
 	buildCmd.Flags().Bool("watch", false, "NOT CURRENTLY IMPLEMENTED - Continuously watch source files for changes and rebuild automitically when changes are detected.")
 
 	// Here you will define your flags and configuration settings.

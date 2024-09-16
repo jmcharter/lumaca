@@ -6,18 +6,42 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/BurntSushi/toml"
+	"github.com/jmcharter/lumaca/config"
 )
 
-func Initialise() error {
+func Initialise(author string, title string) error {
 	// Check for existence of config.toml
 	if _, err := os.Stat("config.toml"); err == nil {
 		fmt.Println("Project already initialised")
 		return nil // Early return if file exists
 	}
 	// Create config.toml
-	err := os.WriteFile("config.toml", []byte(""), 0644)
+	if author == "" {
+		author = "Blog Author"
+	}
+	if title == "" {
+		title = "Blog Title"
+	}
+	var cfg_data config.Config
+	cfg_data.Author.Name = author
+	cfg_data.Site.Title = title
+	cfg_data.Site.Author = author
+	cfg_data.Directories.Posts = "content/posts"
+	cfg_data.Directories.Pages = "content/pages"
+	cfg_data.Directories.Static = "static"
+	cfg_data.Directories.Templates = "templates"
+	cfg_data.Directories.Dist = "dist"
+	cfg_data.Files.Extension = ".html"
+
+	f, err := os.Create("config.toml")
 	if err != nil {
 		return fmt.Errorf("failed to create config.toml: %w", err)
+	}
+	err = toml.NewEncoder(f).Encode(cfg_data)
+	if err != nil {
+		return fmt.Errorf("failed to write config data to config.toml: %w", err)
 	}
 
 	// Create "templates" and "content/static" directories with files

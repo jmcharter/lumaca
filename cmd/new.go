@@ -20,7 +20,6 @@ var newCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(newCmd)
 
 	newCmd.Flags().StringVarP(&title, "title", "t", "", "Title for the new page (required)")
 	newCmd.Flags().StringVarP(&author, "author", "a", "", "Author of the new page (optional)")
