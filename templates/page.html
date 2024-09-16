@@ -1,0 +1,10 @@
+{{define "title"}}{{or .Frontmatter.Title "CHRT.DEV"}}{{end}}
+
+{{define "header"}}<h1>{{or .Frontmatter.Title "Post Title"}}</h1>{{end}}
+
+{{define "content"}}
+{{or .HTMLContent "Post content"}}
+{{end}}
+
+
+{{template "base.html" .}}

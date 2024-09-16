@@ -1,0 +1,10 @@
+{{define "title"}}{{ .MD.Frontmatter.Title }}{{end}}
+
+{{define "header"}}<h1>{{or .MD.Frontmatter.Title "Post Title"}}</h1>{{end}}
+
+{{define "content"}}
+{{or .MD.HTMLContent "Post content"}}
+{{end}}
+
+
+{{template "base.html" .}}

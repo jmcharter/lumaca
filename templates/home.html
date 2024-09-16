@@ -1,0 +1,16 @@
+{{define "title"}}{{.SiteData.Title}}{{end}}
+
+{{define "header"}}<h1>Recent posts</h1>{{end}}
+
+{{define "content"}}
+{{range .MD}}
+<h2>
+  <a href="{{.Path}}">{{.Frontmatter.Title}}</a>
+</h2>
+<h4>by {{.Frontmatter.Author}}</h4>
+<p>{{.HTMLContent}}</p>
+{{end}}
+{{end}}
+
+
+{{template "base.html" .}}
